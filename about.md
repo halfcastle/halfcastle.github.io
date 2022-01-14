@@ -5,6 +5,7 @@ permalink: /about/
 ---
 
 I like cats.
+
 And penguins. But the animal in my profile picture is actually a kappa, not a penguin. 
 
 ### Contact me
