@@ -1,0 +1,303 @@
+## Web Scraping on IMDB! ##
+
+In this blog post, I will create a list of recommended movies based on the number of shared actors there are with my favorite movie.
+
+The link to my github repo for this blog post is https://github.com/halfcastle/crawly
+
+First, we need to intialize our project by opening the terminal in the location of the github repository and enter the following:
+
+```console
+conda activate PIC16B
+scrapy startproject IMDB_scraper
+cd IMDB_scraper
+
+```
+
+I have also entered the following line in settings.py in my IMDB_scraper folder to keep the number of pages the spider downloads at 20.
+
+```
+CLOSESPIDER_PAGECOUNT = 20
+```
+
+### And now it's time to write the actual scraper!
+
+First, create a file called imdb_spider.py in the spiders directory. This will be where our spider lives!
+
+Importing the scrapy package, and initializing the scraper by giving it a name (for use when we actually run it in the terminal!) and telling it where to go (the url of your favorite movie).
+
+
+```python
+import scrapy
+
+class ImdbSpider(scrapy.Spider):
+    name = 'imdb_spider'
+    start_urls = ['https://www.imdb.com/title/tt11032374/']
+```
+
+The movie I chose is Demon Slayer: Mugen Train. 
+
+### Implementing 3 parsing methods
+
+The first place our spider goes is the movie page (our start_urls), where it then navigates itself to the Cast & Crew page.
+
+
+```python
+def parse(self,response):
+    """
+    Starting on the movie page -> navigates to the Cast & Crew page
+    Then calls the function parse_full_credits
+    """
+    cast_url = response.urljoin("fullcredits")
+    #obtains url of the cast page
+    yield scrapy.Request(cast_url, callback = self.parse_full_credits)
+    #we are now on the cast url, and we now call the next function while on this page
+```
+
+The next function, parse_full_credits, allows our scraper to access the pages for each actor in the movie. Using list comprehension, we are able to mimic the process of clicking on each actor's headshots.
+
+If you look closey at the actor link using dev tools, you'll see that the link is just a letter "a". We need to select something more specific, hence we look at the tag on the photo which is "td.primary_photo". We select the "a" from there, then by extracting the href attribute from the "a" element, we're able to get the link to each actor's individual pages. 
+
+
+```python
+def parse_full_credits(self,response):
+    """
+    Starting on the Cast & Crew page
+    Navigates to the page of each actor listed on the page
+    """
+    for actor in [a.attrib["href"] for a in response.css("td.primary_photo a")]:
+        actor_url = response.urljoin(actor)
+        yield scrapy.Request(actor_url, callback = self.parse_actor_page)
+```
+
+The last function will obtain the movies each actor was a part of. 
+
+It will yield a dictionary that contains all actor names our scraper found and their respective movies.
+
+
+```python
+def parse_actor_page(self,response):
+    """
+    Starting on an actor's page,
+    Yields a dictionary containing actor name and movie name
+    """
+    actor_name = response.css("span.itemprop::text").get()
+    movie_list = response.css("b a::text").getall()
+    #obtains all elements with this tag
+    for movie in movie_list:
+        yield{
+            "Actor Name" : actor_name,
+            "Movie" : movie
+        }
+```
+
+Now it's time to run our scraper! Type the following into terminal:
+
+```
+scrapy crawl imdb_spider -o results.csv
+
+```
+
+This results inn a csv file called results. Mine is called "resultss" because I was playing with different movies and saved multiple csvs.
+
+We can now take a look at our results! (in jupyter notebook)
+
+
+```python
+results = pd.read_csv("resultss.csv")
+```
+
+
+```python
+results.head(5)
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Actor Name</th>
+      <th>Movie</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Ray Chase</td>
+      <td>X-Men '97</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Ray Chase</td>
+      <td>Blade Runner: Black Lotus</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Ray Chase</td>
+      <td>Halo Infinite</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Ray Chase</td>
+      <td>Licorice Pizza</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Ray Chase</td>
+      <td>Shin Megami Tensei V</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+We want our data to look like
+
+*Movie name | Number of shared actors*
+
+so we'll do some pandas. 
+
+
+```python
+import pandas as pd
+```
+
+The values.counts() method returns the number of unique values under "Movies". It also very nicely sorts our table in descending order.
+
+
+```python
+new = results["Movie"].value_counts().rename_axis("Movie").reset_index(name="Number of Shared Actors")
+```
+
+
+```python
+new.head(15)
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Movie</th>
+      <th>Number of Shared Actors</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Demon Slayer: Mugen Train</td>
+      <td>57</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Demon Slayer: The Hinokami Chronicles</td>
+      <td>51</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Demon Slayer: Kimetsu no Yaiba</td>
+      <td>51</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Fire Emblem Heroes</td>
+      <td>35</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>JoJo's Bizarre Adventure</td>
+      <td>29</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>Sword Art Online</td>
+      <td>27</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>Pokémon</td>
+      <td>25</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>Pokémon Masters</td>
+      <td>24</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>The Seven Deadly Sins</td>
+      <td>21</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>One Punch Man</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>Final Fantasy VII Remake</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>Boruto: Naruto Next Generations</td>
+      <td>19</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>Naruto: Shippûden</td>
+      <td>19</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>Hunter x Hunter</td>
+      <td>18</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>Gintama</td>
+      <td>18</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+As expected, the top movies (shows) are also part of the Demon Slayer series, and they're all anime.
+
+There are so many voice actors in Demon Slayer that I look up to as an aspiring voice actor. :') 
