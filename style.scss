@@ -34,8 +34,8 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6{
-  font-family: "Hashed Browns";
-  src: url("C:/Users/kadomiii/Library/Fonts/HashedBrowns-WyJgn.ttf");
+  font-family: "Nikkyou Sans";
+  src: url("C:/Users/kadomiii/Library/Fonts/NikkyouSans-mLKax.ttf");
   color: $darkerGray;
   font-weight: bold;
 
@@ -73,11 +73,11 @@ p {
 }
 
 a {
-  color: $blue;
+  color: $turquoise;
   text-decoration: none;
 	cursor: pointer;
   &:hover, &:active {
-    color: $blue;
+    color: $turquoise;
   }
 }
 
